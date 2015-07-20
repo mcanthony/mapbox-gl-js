@@ -33,7 +33,8 @@ module.exports = function BufferSet(bufferset) {
                 pos:   { components: 2, type: Buffer2.AttributeType.SHORT },
                 color: { components: 4 },
                 size:  { },
-                blur:  { }
+                blur:  { },
+                opacity: { }
             }
         }),
 

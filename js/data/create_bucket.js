@@ -6,13 +6,13 @@ var LineBucket = require('./line_bucket');
 var FillBucket = require('./fill_bucket');
 var SymbolBucket = require('./symbol_bucket');
 var StyleDeclarationSet = require('../style/style_declaration_set');
-var createCircleBucket = require('./circle_bucket2');
+var CircleBucket = require('./circle_bucket2');
 
 function createBucket(params) {
     var layer = params.layer;
 
     if (layer.type === 'circle') {
-        return createCircleBucket(params);
+        return new CircleBucket(params);
 
     } else {
 

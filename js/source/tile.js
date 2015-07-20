@@ -5,6 +5,7 @@ var mat2 = glmatrix.mat2;
 var mat4 = glmatrix.mat4;
 var util = require('../util/util');
 var BufferSet = require('../data/buffer/buffer_set');
+var Bucket = require('../data/bucket2');
 
 module.exports = Tile;
 
@@ -99,9 +100,13 @@ Tile.prototype = {
         if (!data) return;
 
         this.buffers = new BufferSet(data.buffers);
-        this.buckets = data.buckets;
         this.elementGroups = data.elementGroups;
         this.tileExtent = data.extent;
+
+        this.buckets = {};
+        for (var k in data.buckets) {
+            this.buckets[k] = Bucket.unserialize(data.buckets[k]);
+        }
     },
 
     /**
