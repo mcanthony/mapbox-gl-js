@@ -69,8 +69,9 @@ module.exports = Bucket.createClass({
             type: Bucket.AttributeType.UNSIGNED_BYTE,
             components: 1,
             value: function() {
-                var blurValue = Bucket.createStyleValue('circle-blur');
-                var radiusValue = Bucket.createStyleValue('circle-radius');
+                var blurValue = Bucket.createStyleValue('circle-blur').apply(this, arguments);
+                var radiusValue = Bucket.createStyleValue('circle-radius').apply(this, arguments);
+                var devicePixelRatio = this.params.devicePixelRatio;
 
                 return function() {
 
@@ -78,7 +79,7 @@ module.exports = Bucket.createClass({
                         var innerBlurValue = blurValue instanceof Function ? blurValue(data) : blurValue;
                         var innerRadiusValue = radiusValue instanceof Function ? radiusValue(data) : radiusValue;
 
-                        return [Math.max(1 / (this.instanceParams.devicePixelRatio || 1) / innerRadiusValue[0], innerBlurValue[0]) * 10];
+                        return [Math.max(1 / (devicePixelRatio || 1) / innerRadiusValue[0], innerBlurValue[0]) * 10];
                     }
 
                     if (blurValue instanceof Function || radiusValue instanceof Function) {

@@ -55,9 +55,10 @@ var Bucket = {
     // TODO support classes
     // TODO send most of this logic upstream to style_layer or something
     createStyleValue: function(name, params) {
+        params = params || {};
         return function() {
             var calculateGlobal = MapboxGLFunction(this.styleLayer.getPaintProperty(name));
-            var calculate = calculateGlobal({$zoom: params.z});
+            var calculate = calculateGlobal({$zoom: this.z});
 
             function inner(data) {
                 util.assert(data.properties, 'The elementVertexGenerator must provide feature properties');
@@ -118,6 +119,7 @@ var Bucket = {
             this.vertexLength = params.vertexLength || null;
             this.elementLength = params.elementLength || null;
             this.isElementBufferStale = params.isElementBufferStale || true;
+            this.z = params.z;
 
             this.params = params;
             this.klass = klass;
