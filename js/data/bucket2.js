@@ -56,6 +56,7 @@ var Bucket = {
     // TODO send most of this logic upstream to style_layer or something
     createStyleValue: function(name, params) {
         params = params || {};
+
         return function() {
             var calculateGlobal = MapboxGLFunction(this.styleLayer.getPaintProperty(name));
             var calculate = calculateGlobal({$zoom: this.z});
@@ -112,7 +113,6 @@ var Bucket = {
         function klass(params) {
             this.id = params.id;
             this.type = klass.type;
-            this.layer = params.layer;
             this.stylesheet = params.stylesheet;
             this.buffers = params.buffers;
             this.elementGroups = params.elementGroups || null;
@@ -120,14 +120,15 @@ var Bucket = {
             this.elementLength = params.elementLength || null;
             this.isElementBufferStale = params.isElementBufferStale || true;
             this.z = params.z;
+            this.layers = params.layers;
 
-            this.params = params;
-            this.klass = klass;
-
-            this.styleLayer = new StyleLayer(params.layer, params.constants);
+            this.styleLayer = new StyleLayer(this.layers[0], params.constants);
             this.styleLayer.resolveLayout();
             this.styleLayer.resolvePaint();
             this.styleLayer.recalculate(params.z, []);
+
+            this.params = params;
+            this.klass = klass;
 
             // Normalize vertex attributes
             this.vertexAttributes = {};
@@ -152,13 +153,6 @@ var Bucket = {
                 };
             }
 
-            // The layer ids of secondary layers ref-ed to this bucket will be inserted into
-            // this.array. Initializing this property prevents errors from being thrown but this
-            // class does not fully implement ref-ed layers. Truly supporting ref-ed layers for data
-            // driven styles is going to be a large lift.
-            // TODO rename to "referencedLayers" and truly support this functionality
-            this.layers = [];
-
             // TODO instead of storing features on the bucket, pass features ephemerally and
             // directly to refreshBuffers
             this.features = [];
@@ -182,7 +176,7 @@ var Bucket = {
                 elementLength: this.elementLength,
                 vertexLength: this.vertexLength,
                 isElementBufferStale: this.isElementBufferStale,
-                layer: this.params.layer, // TODO remove this
+                layers: this.params.layers, // TODO remove this
                 constants: this.params.constants // TODO remove this
             };
         };
@@ -207,6 +201,7 @@ var Bucket = {
 
                 if (filters.isStale !== undefined && filters.isStale !== attribute.isStale) continue;
                 if (filters.isFeatureConstant !== undefined && filters.isFeatureConstant !== attribute.isFeatureConstant) continue;
+                if (filters.isPerLayer !== undefined && filters.isPerLayer !== attribute.isPerLayer) continue;
 
                 callback(attribute);
             }

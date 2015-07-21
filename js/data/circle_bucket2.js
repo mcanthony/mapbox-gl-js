@@ -50,19 +50,22 @@ module.exports = Bucket.createClass({
         size: {
             value: Bucket.createStyleValue('circle-radius', {multiplier: 10}),
             type: Bucket.AttributeType.UNSIGNED_BYTE,
-            components: 1
+            components: 1,
+            isPerLayer: true
         },
 
         color: {
             value: Bucket.createStyleValue('circle-color', {multiplier: 255}),
             type: Bucket.AttributeType.UNSIGNED_BYTE,
-            components: 4
+            components: 4,
+            isPerLayer: true
         },
 
         opacity: {
             value: Bucket.createStyleValue('circle-opacity', {multiplier: 255}),
             type: Bucket.AttributeType.UNSIGNED_BYTE,
-            components: 1
+            components: 1,
+            isPerLayer: true
         },
 
         blur: {
@@ -88,7 +91,8 @@ module.exports = Bucket.createClass({
                         return applyAntialiasing({});
                     }
                 }
-            }
+            },
+            isPerLayer: true
         }
     }
 

@@ -65,9 +65,19 @@ WorkerTile.prototype.parse = function(data, layers, constants, actor, callback) 
 
         var filter = featureFilter(layer.filter);
 
+        var bucketLayers = [layer];
+        if (data.layers) {
+            for (var j = 0; j < data.layers.length; j++) {
+                if (bucket.layers[j].ref === layer.id) {
+                    bucketLayers.push(bucket.layers[j]);
+                }
+            }
+        }
+
         var bucket = createBucket({
             id: layer.id,
             layer: layer,
+            layers: bucketLayers,
             buffers: buffers,
             constants: constants,
             z: this.zoom,
@@ -105,9 +115,9 @@ WorkerTile.prototype.parse = function(data, layers, constants, actor, callback) 
         if (!bucket)
             continue;
 
-        bucket.layers.push(layer.id);
 
         if (!bucket.isMapboxBucket) {
+            bucket.layers.push(layer.id);
             bucket.layerPaintDeclarations[layer.id] =
                 new StyleDeclarationSet('paint', layer.type, layer.paint, constants).values();
         }
