@@ -11,8 +11,6 @@ var IconVertexBuffer = require('./icon_vertex_buffer');
 var IconElementBuffer = require('./triangle_element_buffer');
 var CollisionBoxVertexBuffer = require('./collision_box_vertex_buffer');
 
-var Buffer2 = require('../buffer2');
-
 module.exports = function BufferSet(bufferset) {
     bufferset = bufferset || {};
     return {
@@ -25,24 +23,6 @@ module.exports = function BufferSet(bufferset) {
         outlineElement: new OutlineElementBuffer(bufferset.outlineElement),
         lineVertex: new LineVertexBuffer(bufferset.lineVertex),
         lineElement: new LineElementBuffer(bufferset.lineElement),
-        collisionBoxVertex: new CollisionBoxVertexBuffer(bufferset.collisionBoxVertex),
-
-        circleVertex: new Buffer2(bufferset.circleVertex || {
-            type: Buffer2.BufferType.VERTEX,
-            attributes: {
-                pos:   { components: 2, type: Buffer2.AttributeType.SHORT },
-                color: { components: 4 },
-                size:  { },
-                blur:  { },
-                opacity: { }
-            }
-        }),
-
-        circleElement: new Buffer2(bufferset.circleElement || {
-            type: Buffer2.BufferType.ELEMENT,
-            attributes: {
-                verticies: { components: 3, type: Buffer2.AttributeType.UNSIGNED_SHORT }
-            }
-        })
+        collisionBoxVertex: new CollisionBoxVertexBuffer(bufferset.collisionBoxVertex)
     };
 };

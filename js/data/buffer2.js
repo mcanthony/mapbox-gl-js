@@ -253,6 +253,8 @@ Buffer.AttributeType = {
     UNSIGNED_SHORT: { size: 2, name: 'UNSIGNED_SHORT' }
 };
 
+Buffer.INDEX_ATTRIBUTE_TYPE = Buffer.AttributeType.UNSIGNED_SHORT;
+
 Buffer.SIZE_DEFAULT = 8192;
 
 Buffer.SIZE_ALIGNMENT = 2;

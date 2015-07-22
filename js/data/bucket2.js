@@ -50,15 +50,13 @@ var Bucket = {
         return new this.classes[serialized.type](serialized);
     },
 
-    // TODO this needs to always return a function. It doesn't yet have access to the styleLayer
-    // and such. Best is probably a function -> function -> value flow, like in GLFunction.
     // TODO support classes
     // TODO send most of this logic upstream to style_layer or something
     createStyleValue: function(name, params) {
         params = params || {};
 
-        return function() {
-            var calculateGlobal = MapboxGLFunction(this.styleLayer.getPaintProperty(name));
+        return function(layer) {
+            var calculateGlobal = MapboxGLFunction(this.styleLayers[layer.id].getPaintProperty(name));
             var calculate = calculateGlobal({$zoom: this.z});
 
             function inner(data) {
@@ -77,7 +75,7 @@ var Bucket = {
             } else {
                 return inner;
             }
-        }
+        };
     },
 
     classes: {},
@@ -96,8 +94,6 @@ var Bucket = {
     createClass: function(classParams) {
         klass.params = classParams;
         klass.type = classParams.type;
-        klass.elementBuffer = classParams.elementBuffer;
-        klass.vertexBuffer = classParams.vertexBuffer;
         klass.shader = classParams.shader;
         klass.mode = classParams.mode;
 
@@ -111,51 +107,92 @@ var Bucket = {
          * @param params.buffers (to be deprecated)
          */
         function klass(params) {
+            this.params = params;
+            this.klass = klass;
+            this.mode = klass.mode;
             this.id = params.id;
             this.type = klass.type;
             this.stylesheet = params.stylesheet;
-            this.buffers = params.buffers;
             this.elementGroups = params.elementGroups || null;
             this.vertexLength = params.vertexLength || null;
             this.elementLength = params.elementLength || null;
             this.isElementBufferStale = params.isElementBufferStale || true;
-            this.z = params.z;
             this.layers = params.layers;
+            this.z = params.z; // TODO rename to zoom
+            this.features = []; // TODO instead of storing features on the bucket, pass features ephemerally and directly to refreshBuffers
 
-            this.styleLayer = new StyleLayer(this.layers[0], params.constants);
-            this.styleLayer.resolveLayout();
-            this.styleLayer.resolvePaint();
-            this.styleLayer.recalculate(params.z, []);
-
-            this.params = params;
-            this.klass = klass;
+            // TODO not this
+            this.styleLayers = {};
+            for (var i = 0; i < this.layers.length; i++) {
+                var layer = this.layers[i];
+                var styleLayer = new StyleLayer(layer, params.constants);
+                styleLayer.resolveLayout();
+                styleLayer.resolvePaint();
+                styleLayer.recalculate(params.z, []);
+                this.styleLayers[layer.id] = styleLayer;
+            }
 
             // Normalize vertex attributes
             this.vertexAttributes = {};
-            for (var attributeName in classParams.vertexAttributes) {
-                var attribute = classParams.vertexAttributes[attributeName];
+            for (var key in classParams.vertexAttributes) {
+                var attribute = classParams.vertexAttributes[key];
 
-                var attributeValue
-                if (attribute.value instanceof Function) {
-                    attributeValue = attribute.value.call(this, classParams)
+                var attributeName = attribute.name || key;
+
+                var attributeLayers;
+                if (attribute.isPerLayer) {
+                    attributeLayers = this.layers;
                 } else {
-                    attributeValue = attribute.value
+                    attributeLayers = [this.layers[0]];
                 }
 
-                this.vertexAttributes[attribute.name || attributeName] = {
-                    name: attribute.name || attributeName,
-                    components: attribute.components || 1,
-                    type: attribute.type || Bucket.AttributeType.UNSIGNED_BYTE,
-                    isStale: true,
-                    buffer: classParams.vertexBuffer,
-                    value: attributeValue,
-                    isFeatureConstant: !(attributeValue instanceof Function),
-                };
+                for (var j = 0; j < attributeLayers.length; j++) {
+                    var layer = attributeLayers[j];
+
+                    var attributeValue;
+                    if (attribute.value instanceof Function) {
+                        attributeValue = attribute.value.call(this, layer);
+                    } else {
+                        attributeValue = attribute.value;
+                    }
+
+                    this.vertexAttributes[attribute.name || attributeName] = {
+                        name: attributeName,
+                        components: attribute.components || 1,
+                        type: attribute.type || Bucket.AttributeType.UNSIGNED_BYTE,
+                        isStale: true,
+                        value: attributeValue,
+                        isFeatureConstant: !(attributeValue instanceof Function),
+                        layer: layer,
+                        vertexBufferName: attributeLayers[j].id + '::' + attributeName
+                    };
+                }
             }
 
-            // TODO instead of storing features on the bucket, pass features ephemerally and
-            // directly to refreshBuffers
-            this.features = [];
+            // Create vertex buffer
+            this.vertexBuffer = new Buffer(params.vertexBuffer || {
+                type: Buffer.BufferType.VERTEX,
+                attributes: collect(this.eachVertexAttribute.bind(this), {
+                    isFeatureConstant: false
+                }).map(function(attribute) {
+                    return {
+                        name: attribute.vertexBufferName,
+                        components: attribute.components,
+                        type: attribute.type
+                    };
+                })
+            });
+
+            // Create element buffer
+            this.elementBuffer = new Buffer(params.elementBuffer || {
+                type: Buffer.BufferType.ELEMENT,
+                attributes: {
+                    verticies: {
+                        components: this.mode.verticiesPerElement,
+                        type: Buffer.INDEX_ATTRIBUTE_TYPE
+                    }
+                }
+            });
         }
 
         klass.prototype.elementVertexGenerator = classParams.elementVertexGenerator;
@@ -165,19 +202,22 @@ var Bucket = {
          * @returns a serialized version of this instance of `Bucket`, suitable for transfer between the
          * worker thread and the main thread.
          */
+        // TODO provide getTransferrables
         klass.prototype.serialize = function() {
             this.refreshBuffers();
 
             return {
-                type: klass.type,
                 isSerializedMapboxBucket: true,
+                type: klass.type,
                 id: this.id,
                 elementGroups: this.elementGroups,
                 elementLength: this.elementLength,
                 vertexLength: this.vertexLength,
                 isElementBufferStale: this.isElementBufferStale,
                 layers: this.params.layers, // TODO remove this
-                constants: this.params.constants // TODO remove this
+                constants: this.params.constants, // TODO remove this
+                elementBuffer: this.elementBuffer.serialize(),
+                vertexBuffer: this.vertexBuffer.serialize()
             };
         };
 
@@ -185,23 +225,24 @@ var Bucket = {
          * Iterate over this bucket's vertex attributes
          *
          * @private
-         * @param [filter]
-         * @param {boolean} filter.isStale
-         * @param {boolean} filter.isFeatureConstant
+         * @param [options]
+         * @param {boolean} [options.isStale]
+         * @param {boolean} [options.isFeatureConstant]
+         * @param {boolean} [options.eachLayer]
          * @param callback
          */
-        klass.prototype.eachVertexAttribute = function(filters, callback) {
+        klass.prototype.eachVertexAttribute = function(params, callback) {
             if (arguments.length === 1) {
-                callback = filters;
-                filters = {};
+                callback = params;
+                params = {};
             }
 
             for (var attributeName in this.vertexAttributes) {
                 var attribute = this.vertexAttributes[attributeName];
 
-                if (filters.isStale !== undefined && filters.isStale !== attribute.isStale) continue;
-                if (filters.isFeatureConstant !== undefined && filters.isFeatureConstant !== attribute.isFeatureConstant) continue;
-                if (filters.isPerLayer !== undefined && filters.isPerLayer !== attribute.isPerLayer) continue;
+                if (params.isStale !== undefined && params.isStale !== attribute.isStale) continue;
+                if (params.isFeatureConstant !== undefined && params.isFeatureConstant !== attribute.isFeatureConstant) continue;
+                if (params.layer !== undefined && !(params.layer.id === attribute.layer.id || params.layer === attribute.layer.id)) continue;
 
                 callback(attribute);
             }
@@ -216,9 +257,10 @@ var Bucket = {
         klass.prototype.refreshBuffers = function() {
             var that = this;
 
-            var staleVertexAttributes = [];
-            this.eachVertexAttribute({isStale: true, isFeatureConstant: false}, function(attribute) {
-                staleVertexAttributes.push(attribute);
+            var staleVertexAttributes = collect(this.eachVertexAttribute.bind(this), {
+                isStale: true,
+                isFeatureConstant: false,
+                eachLayer: true
             });
 
             // Avoid iterating over everything if all buffers are up to date
@@ -239,8 +281,9 @@ var Bucket = {
             function vertexCallback(data) {
                 for (var j = 0; j < staleVertexAttributes.length; j++) {
                     var attribute = staleVertexAttributes[j];
+                    data = util.extend({ layer: attribute.layer, attribute: attribute }, data);
                     var value = attribute.value.call(that, data);
-                    that.buffers[attribute.buffer].setAttribute(vertexIndex, attribute.name, value);
+                    that.vertexBuffer.setAttribute(vertexIndex, attribute.vertexBufferName, value);
                 }
                 elementGroup.vertexLength++;
                 return vertexIndex++;
@@ -250,7 +293,7 @@ var Bucket = {
             var elementIndex = 0;
             function elementCallback(data) {
                 if (that.isElementBufferStale) {
-                    that.buffers[klass.elementBuffer].add(data);
+                    that.elementBuffer.add(data);
                 }
                 elementGroup.elementLength++;
                 return elementIndex++;
@@ -282,5 +325,13 @@ var Bucket = {
     }
 
 };
+
+function collect(generator) {
+    var output = [];
+    var callback = function() { output.push(arguments[0]); };
+    var args = Array.prototype.slice.call(arguments, 1).concat(callback);
+    generator.apply(this, args);
+    return output;
+}
 
 module.exports = Bucket;

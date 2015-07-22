@@ -5,6 +5,7 @@ var browser = require('../util/browser');
 var mat4 = require('gl-matrix').mat4;
 var FrameHistory = require('./frame_history');
 var util = require('../util/util');
+var Buffer = require('../data/buffer2');
 
 /*
  * Initialize a new painter object.
@@ -38,6 +39,7 @@ Painter.prototype.resize = function(width, height) {
 
 // TODO move to Bucket class
 Painter.prototype.draw = function(bucket, layer, tile) {
+
     // Empty GeoJSON tiles have nothing to draw. They have no buckets or buffers.
     if (!tile.buckets || !tile.buffers) return;
 
@@ -53,34 +55,40 @@ Painter.prototype.draw = function(bucket, layer, tile) {
 
     gl.switchShader(shader, tile.posMatrix, tile.exMatrix);
 
-    bucket.eachVertexAttribute({isFeatureConstant: true}, function(attribute) {
+    // Bind per-layer values as vertex attributes
+    bucket.eachVertexAttribute({isFeatureConstant: true, layer: layer}, function(attribute) {
         var attributeShaderLocation = shader['a_' + attribute.name];
-        util.assert(attributeShaderLocation);
-
+        util.assert(attributeShaderLocation !== undefined);
+        util.assert(attributeShaderLocation !== 0);
         gl.disableVertexAttribArray(attributeShaderLocation);
         gl['vertexAttrib' + attribute.components + 'fv'](attributeShaderLocation, wrap(attribute.value));
-    })
+    });
 
     for (var i = 0; i < bucket.elementGroups.length; i++) {
         var elementGroup = bucket.elementGroups[i];
 
-        tile.buffers[bucket.klass.vertexBuffer].bind(gl);
-        tile.buffers[bucket.klass.elementBuffer].bind(gl);
+        bucket.vertexBuffer.bind(gl);
+        bucket.elementBuffer.bind(gl);
 
-        bucket.eachVertexAttribute({isFeatureConstant: false}, function(attribute) {
+        // Bind per-feature values as vertex attribute pointers
+        bucket.eachVertexAttribute({isFeatureConstant: false, layer: layer}, function(attribute) {
             var attributeShaderLocation = shader['a_' + attribute.name];
             util.assert(attributeShaderLocation !== undefined);
 
-            tile.buffers[attribute.buffer].bindVertexAttribute(gl, attributeShaderLocation, elementGroup.vertexIndex, attribute.name);
+            bucket.vertexBuffer.bindVertexAttribute(
+                gl,
+                attributeShaderLocation,
+                elementGroup.vertexIndex,
+                attribute.vertexBufferName
+            );
         });
 
         gl.drawElements(
             gl[bucket.klass.mode.name],
-            elementGroup.elementLength * bucket.klass.mode.verticiesPerElement,
-            gl.UNSIGNED_SHORT,
-            tile.buffers[bucket.klass.elementBuffer].getIndexOffset(elementGroup.elementIndex)
+            elementGroup.elementLength * bucket.mode.verticiesPerElement,
+            gl[Buffer.INDEX_ATTRIBUTE_TYPE.name],
+            bucket.elementBuffer.getIndexOffset(elementGroup.elementIndex)
         );
-
     }
 
     if (bucket.klass.disableStencilTest) gl.enable(gl.STENCIL_TEST);

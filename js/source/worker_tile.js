@@ -66,11 +66,9 @@ WorkerTile.prototype.parse = function(data, layers, constants, actor, callback) 
         var filter = featureFilter(layer.filter);
 
         var bucketLayers = [layer];
-        if (data.layers) {
-            for (var j = 0; j < data.layers.length; j++) {
-                if (bucket.layers[j].ref === layer.id) {
-                    bucketLayers.push(bucket.layers[j]);
-                }
+        if (data.layers) for (var j = 0; j < data.layers.length; j++) {
+            if (data.layers[j].ref === layer.id) {
+                bucketLayers.push(data.layers[j]);
             }
         }
 

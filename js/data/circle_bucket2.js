@@ -41,7 +41,7 @@ module.exports = Bucket.createClass({
                         (data.geometry.x * 2) + ((data.extrude[0] + 1) / 2),
                         (data.geometry.y * 2) + ((data.extrude[1] + 1) / 2)
                     ];
-                }
+                };
             },
             type: Bucket.AttributeType.SHORT,
             components: 2
@@ -90,7 +90,7 @@ module.exports = Bucket.createClass({
                     } else {
                         return applyAntialiasing({});
                     }
-                }
+                };
             },
             isPerLayer: true
         }
