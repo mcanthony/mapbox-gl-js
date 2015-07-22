@@ -33,18 +33,34 @@ map.on('style.load', function() {
     });
 
     map.addLayer({
-        "id": "random-points",
+        "id": "random-points-also",
         "type": "circle",
         "source": "geojson-random-points",
         "paint": {
-            "circle-radius": 5,
+            "circle-radius": 10,
             "circle-color": {
-                "property": "mapbox",
-                "domain": [0, 50, 100],
-                "range": ["red", "orange", "blue"]
+                domain: [0, 100],
+                range: ["red", "orange"],
+                property: "mapbox"
             }
         }
     });
+
+    map.addLayer({
+        "id": "random-points",
+        "type": "circle",
+        "source": "geojson-random-points",
+        "ref": "random-points-also",
+        "paint": {
+            "circle-radius": 5,
+            "circle-color": {
+                domain: [0, 100],
+                range: ["purple", "pink"],
+                property: "mapbox"
+            }
+        }
+    });
+
 });
 
 map.on('click', function(e) {

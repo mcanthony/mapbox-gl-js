@@ -61,6 +61,7 @@ Painter.prototype.draw = function(bucket, layer, tile) {
         util.assert(attributeShaderLocation !== undefined);
         util.assert(attributeShaderLocation !== 0);
         gl.disableVertexAttribArray(attributeShaderLocation);
+
         gl['vertexAttrib' + attribute.components + 'fv'](attributeShaderLocation, wrap(attribute.value));
     });
 

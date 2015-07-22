@@ -66,9 +66,11 @@ WorkerTile.prototype.parse = function(data, layers, constants, actor, callback) 
         var filter = featureFilter(layer.filter);
 
         var bucketLayers = [layer];
-        if (data.layers) for (var j = 0; j < data.layers.length; j++) {
-            if (data.layers[j].ref === layer.id) {
-                bucketLayers.push(data.layers[j]);
+        if (layers) {
+            for (var j = 0; j < layers.length; j++) {
+                if (layers[j].ref === layer.id) {
+                    bucketLayers.push(layers[j]);
+                }
             }
         }
 
@@ -112,7 +114,6 @@ WorkerTile.prototype.parse = function(data, layers, constants, actor, callback) 
         bucket = buckets[layer.ref || layer.id];
         if (!bucket)
             continue;
-
 
         if (!bucket.isMapboxBucket) {
             bucket.layers.push(layer.id);

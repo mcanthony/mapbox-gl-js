@@ -110,9 +110,9 @@ var Bucket = {
             this.params = params;
             this.klass = klass;
             this.mode = klass.mode;
+            this.disableStencilTest = classParams.disableStencilTest;
             this.id = params.id;
             this.type = klass.type;
-            this.stylesheet = params.stylesheet;
             this.elementGroups = params.elementGroups || null;
             this.vertexLength = params.vertexLength || null;
             this.elementLength = params.elementLength || null;
@@ -133,7 +133,7 @@ var Bucket = {
             }
 
             // Normalize vertex attributes
-            this.vertexAttributes = {};
+            this.vertexAttributes = [];
             for (var key in classParams.vertexAttributes) {
                 var attribute = classParams.vertexAttributes[key];
 
@@ -143,7 +143,7 @@ var Bucket = {
                 if (attribute.isPerLayer) {
                     attributeLayers = this.layers;
                 } else {
-                    attributeLayers = [this.layers[0]];
+                    attributeLayers = [null];
                 }
 
                 for (var j = 0; j < attributeLayers.length; j++) {
@@ -156,7 +156,7 @@ var Bucket = {
                         attributeValue = attribute.value;
                     }
 
-                    this.vertexAttributes[attribute.name || attributeName] = {
+                    this.vertexAttributes.push({
                         name: attributeName,
                         components: attribute.components || 1,
                         type: attribute.type || Bucket.AttributeType.UNSIGNED_BYTE,
@@ -164,8 +164,8 @@ var Bucket = {
                         value: attributeValue,
                         isFeatureConstant: !(attributeValue instanceof Function),
                         layer: layer,
-                        vertexBufferName: attributeLayers[j].id + '::' + attributeName
-                    };
+                        vertexBufferName: (layer ? layer.id + '::' : '') + attributeName // TODO something cleaner
+                    });
                 }
             }
 
@@ -237,12 +237,12 @@ var Bucket = {
                 params = {};
             }
 
-            for (var attributeName in this.vertexAttributes) {
-                var attribute = this.vertexAttributes[attributeName];
+            for (var i = 0; i < this.vertexAttributes.length; i++) {
+                var attribute = this.vertexAttributes[i];
 
                 if (params.isStale !== undefined && params.isStale !== attribute.isStale) continue;
                 if (params.isFeatureConstant !== undefined && params.isFeatureConstant !== attribute.isFeatureConstant) continue;
-                if (params.layer !== undefined && !(params.layer.id === attribute.layer.id || params.layer === attribute.layer.id)) continue;
+                if (params.layer !== undefined && !(!attribute.layer || params.layer.id === attribute.layer.id || params.layer === attribute.layer.id)) continue;
 
                 callback(attribute);
             }
@@ -254,6 +254,7 @@ var Bucket = {
          * @private
          */
         // TODO take features as an argument, don't store as a property
+        // TODO refactor and simplify, even at the cost of perf
         klass.prototype.refreshBuffers = function() {
             var that = this;
 
