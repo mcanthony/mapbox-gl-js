@@ -57,31 +57,33 @@ Painter.prototype.draw = function(bucket, layer, tile) {
 
     // Bind per-layer values as vertex attributes
     bucket.eachVertexAttribute({isFeatureConstant: true, layer: layer}, function(attribute) {
-        var attributeShaderLocation = shader['a_' + attribute.name];
+        var attributeShaderLocation = shader[attribute.shaderName];
         util.assert(attributeShaderLocation !== undefined);
         util.assert(attributeShaderLocation !== 0);
         gl.disableVertexAttribArray(attributeShaderLocation);
-
         gl['vertexAttrib' + attribute.components + 'fv'](attributeShaderLocation, wrap(attribute.value));
     });
 
     for (var i = 0; i < bucket.elementGroups.length; i++) {
         var elementGroup = bucket.elementGroups[i];
 
-        bucket.vertexBuffer.bind(gl);
         bucket.elementBuffer.bind(gl);
 
-        // Bind per-feature values as vertex attribute pointers
-        bucket.eachVertexAttribute({isFeatureConstant: false, layer: layer}, function(attribute) {
-            var attributeShaderLocation = shader['a_' + attribute.name];
-            util.assert(attributeShaderLocation !== undefined);
+        bucket.eachVertexAttributeGroup(function(group) {
+            var vertexBuffer = bucket.vertexBuffers[group];
+            vertexBuffer.bind(gl);
 
-            bucket.vertexBuffer.bindVertexAttribute(
-                gl,
-                attributeShaderLocation,
-                elementGroup.vertexIndex,
-                attribute.vertexBufferName
-            );
+            bucket.eachVertexAttribute({isFeatureConstant: false, group: group, layer: layer}, function(attribute) {
+                var attributeShaderLocation = shader[attribute.shaderName];
+                util.assert(attributeShaderLocation !== undefined);
+
+                vertexBuffer.bindVertexAttribute(
+                    gl,
+                    attributeShaderLocation,
+                    elementGroup.vertexIndex,
+                    attribute.bufferName
+                );
+            });
         });
 
         gl.drawElements(

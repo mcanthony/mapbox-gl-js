@@ -146,6 +146,7 @@ function BucketClass(params) {
     this.id = this.layers[0].id;
 
     this.vertexAttributes = [];
+    this.vertexAttributeGroups = [];
     for (var key in this.vertexAttributeParams) {
 
         var attributeParams = this.vertexAttributeParams[key];
@@ -162,15 +163,24 @@ function BucketClass(params) {
                 attributeValue = attributeParams.value;
             }
 
+            var attributeBufferName = (layer ? layer.id + '::' : '') + attributeName;
+
+            var attributeGroup = attributeParams.group || attributeBufferName;
+
             this.vertexAttributes.push({
-                name: attributeName,
+                bufferName: attributeBufferName,
+                shaderName: 'a_' + attributeName,
                 components: attributeParams.components || 1,
                 type: attributeParams.type || BucketSingleton.AttributeType.UNSIGNED_BYTE,
                 value: attributeValue,
                 isFeatureConstant: !(attributeValue instanceof Function),
                 layer: layer,
-                vertexBufferName: (layer ? layer.id + '::' : '') + attributeName
+                group: attributeGroup
             });
+
+            if (this.vertexAttributeGroups.indexOf(attributeGroup) === -1) {
+                this.vertexAttributeGroups.push(attributeGroup);
+            }
         }
     }
 
@@ -180,36 +190,19 @@ function BucketClass(params) {
         this.vertexLength = params.vertexLength;
         this.elementLength = params.elementLength;
 
-        this.vertexBuffer = new Buffer(params.vertexBuffer);
         this.elementBuffer = new Buffer(params.elementBuffer);
+        this.vertexBuffers = {};
+        for (var group in params.vertexBuffers) {
+            this.vertexBuffers[group] = new Buffer(params.vertexBuffers[group]);
+        }
 
     } else {
 
         this.elementGroups = null;
         this.vertexLength = null;
         this.elementLength = null;
-
-        var vertexBufferAttributes = collect(this.eachVertexAttribute.bind(this), { isFeatureConstant: false });
-        this.vertexBuffer = new Buffer({
-            type: Buffer.BufferType.VERTEX,
-            attributes: vertexBufferAttributes.map(function(attribute) {
-                return {
-                    name: attribute.vertexBufferName,
-                    components: attribute.components,
-                    type: attribute.type
-                };
-            })
-        });
-
-        this.elementBuffer = new Buffer({
-            type: Buffer.BufferType.ELEMENT,
-            attributes: {
-                verticies: {
-                    components: this.mode.verticiesPerElement,
-                    type: Buffer.INDEX_ATTRIBUTE_TYPE
-                }
-            }
-        });
+        this.elementBuffer = null;
+        this.vertexBuffers = null;
 
     }
 }
@@ -221,9 +214,13 @@ BucketClass.prototype.isMapboxBucket = true;
  * @returns a serialized version of this instance of `Bucket`, suitable for transfer between the
  * worker thread and the main thread.
  */
-// TODO provide getTransferrables
 BucketClass.prototype.serialize = function() {
     this.refreshBuffers();
+
+    var serializedVertexBuffers = {};
+    this.eachVertexAttributeGroup(function(group) {
+        serializedVertexBuffers[group] = this.vertexBuffers[group].serialize();
+    });
 
     return {
         isSerializedMapboxBucket: true,
@@ -232,16 +229,18 @@ BucketClass.prototype.serialize = function() {
         elementLength: this.elementLength,
         vertexLength: this.vertexLength,
         elementBuffer: this.elementBuffer.serialize(),
-        vertexBuffer: this.vertexBuffer.serialize(),
+        vertexBuffers: serializedVertexBuffers,
         layerIds: this.layers.map(function(layer) { return layer.id; })
     };
 };
 
+// TODO this operation has mad side effects btw
 BucketClass.prototype.getTransferrables = function() {
-    return [].concat(
-        this.elementBuffer.getTransferrables(),
-        this.vertexBuffer.getTransferrables()
-    );
+    var transferrables = [];
+    this.eachVertexAttributeGroup(function(group) {
+        transferrables = transferrables.concat(this.vertexBuffers[group].getTransferrables());
+    });
+    return transferrables.concat(this.elementBuffer.getTransferrables());
 }
 
 /**
@@ -264,8 +263,19 @@ BucketClass.prototype.eachVertexAttribute = function(params, callback) {
 
         if (params.isFeatureConstant !== undefined && params.isFeatureConstant !== attribute.isFeatureConstant) continue;
         if (params.layer !== undefined && !(!attribute.layer || params.layer.id === attribute.layer.id || params.layer === attribute.layer.id)) continue;
+        if (params.group !== undefined && params.group !== attribute.group) continue;
 
-        callback(attribute);
+        callback.call(this, attribute);
+    }
+};
+
+/**
+ * @private
+ * @param callback
+ */
+BucketClass.prototype.eachVertexAttributeGroup = function(callback) {
+    for (var i = 0; i < this.vertexAttributeGroups.length; i++) {
+        callback.call(this, this.vertexAttributeGroups[i]);
     }
 };
 
@@ -281,6 +291,36 @@ BucketClass.prototype.eachVertexAttribute = function(params, callback) {
 BucketClass.prototype.refreshBuffers = function() {
     var that = this;
 
+    this.vertexBuffers = {};
+    this.eachVertexAttributeGroup(function(group) {
+        var attributes = collect(that.eachVertexAttribute.bind(that), {
+            isFeatureConstant: false,
+            group: group
+        });
+
+        this.vertexBuffers[group] = new Buffer({
+            type: Buffer.BufferType.VERTEX,
+            attributes: attributes.map(function(attribute) {
+                return {
+                    name: attribute.bufferName,
+                    components: attribute.components,
+                    type: attribute.type
+                };
+            })
+        });
+    });
+
+
+    this.elementBuffer = new Buffer({
+        type: Buffer.BufferType.ELEMENT,
+        attributes: {
+            verticies: {
+                components: this.mode.verticiesPerElement,
+                type: Buffer.INDEX_ATTRIBUTE_TYPE
+            }
+        }
+    });
+
     // Refresh element groups
     var elementGroup = { vertexIndex: 0, elementIndex: 0 };
     var elementGroups = this.elementGroups = [];
@@ -294,9 +334,11 @@ BucketClass.prototype.refreshBuffers = function() {
     // Refresh vertex attribute buffers
     var vertexIndex = 0;
     function vertexCallback(feature) {
-        that.eachVertexAttribute({isFeatureConstant: false}, function(attribute) {
-            var value = attribute.value.call(that, feature);
-            that.vertexBuffer.setAttribute(vertexIndex, attribute.vertexBufferName, value);
+        that.eachVertexAttributeGroup(function(group) {
+            that.eachVertexAttribute({isFeatureConstant: false, group: group}, function(attribute) {
+                var value = attribute.value.call(that, feature);
+                that.vertexBuffers[group].setAttribute(vertexIndex, attribute.bufferName, value);
+            });
         });
         elementGroup.vertexLength++;
         return vertexIndex++;
@@ -313,7 +355,6 @@ BucketClass.prototype.refreshBuffers = function() {
     // Iterate over all features
     for (var k = 0; k < this.features.length; k++) {
         var feature = this.features[k];
-
         var featureVertexIndex = vertexIndex;
         var featureElementIndex = elementIndex;
 

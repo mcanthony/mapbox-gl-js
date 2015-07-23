@@ -51,7 +51,8 @@ module.exports = Bucket.createClass({
         size: {
             value: Bucket.createStyleValue('circle-radius', {multiplier: 10}),
             type: Bucket.AttributeType.UNSIGNED_BYTE,
-            components: 1
+            components: 1,
+            group: 'antialiasing'
         },
 
         color: {
@@ -69,6 +70,7 @@ module.exports = Bucket.createClass({
         blur: {
             type: Bucket.AttributeType.UNSIGNED_BYTE,
             components: 1,
+            group: 'antialiasing',
             value: function(layer) {
                 var blurValue = Bucket.createStyleValue('circle-blur').call(this, layer);
                 var radiusValue = Bucket.createStyleValue('circle-radius').call(this, layer);
