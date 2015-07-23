@@ -39,8 +39,8 @@ map.on('style.load', function() {
         "paint": {
             "circle-radius": 5,
             "circle-color": {
-                domain: [0, 100],
-                range: ["red", "orange"],
+                domain: [0, 15, 30, 45, 60, 75, 90, 105],
+                range: ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#8B00FF"],
                 property: "mapbox"
             }
         }

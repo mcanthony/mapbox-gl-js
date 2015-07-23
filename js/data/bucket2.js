@@ -43,12 +43,12 @@ var BucketSingleton = {
      * @param serialized
      * @returns {Bucket}
      */
-    unserialize: function(serialized) {
+    unserialize: function(serialized, style) {
         require('./circle_bucket2');
 
         util.assert(serialized.isSerializedMapboxBucket);
         util.assert(this.classes[serialized.type]);
-        return new this.classes[serialized.type](serialized);
+        return new this.classes[serialized.type](util.extend({style: style}, serialized));
     },
 
     // TODO support classes
@@ -126,10 +126,24 @@ var BucketSingleton = {
 function BucketClass(params) {
     this.zoom = params.zoom;
     this.features = [];
-    this.layers = params.layers;
-    this.id = this.layers[0].id;
-    this.constants = params.constants; // TODO gross
     this.devicePixelRatio = params.devicePixelRatio || 1; // TODO gross
+
+    // TODO always take layerIds and style
+    if (params.layers && params.constants) {
+        this.layers = params.layers;
+        this.constants = params.constants;
+    } else if (params.layerIds && params.style) {
+        // TODO use public style API
+        this.layers = params.layerIds.map(function(layerId) {
+            return params.style.getLayer(layerId)._layer;
+        });
+        this.constants = params.style.stylesheet.constants;
+
+    } else {
+        util.assert(false);
+    }
+
+    this.id = this.layers[0].id;
 
     this.vertexAttributes = [];
     for (var key in this.vertexAttributeParams) {
@@ -214,17 +228,21 @@ BucketClass.prototype.serialize = function() {
     return {
         isSerializedMapboxBucket: true,
         type: this.klass.type,
-        id: this.id,
         elementGroups: this.elementGroups,
         elementLength: this.elementLength,
         vertexLength: this.vertexLength,
         elementBuffer: this.elementBuffer.serialize(),
         vertexBuffer: this.vertexBuffer.serialize(),
-
-        layers: this.layers, // TODO remove this
-        constants: this.constants // TODO remove this
+        layerIds: this.layers.map(function(layer) { return layer.id; })
     };
 };
+
+BucketClass.prototype.getTransferrables = function() {
+    return [].concat(
+        this.elementBuffer.getTransferrables(),
+        this.vertexBuffer.getTransferrables()
+    );
+}
 
 /**
  * Iterate over this bucket's vertex attributes
@@ -305,6 +323,7 @@ BucketClass.prototype.refreshBuffers = function() {
             pushElementGroup(featureVertexIndex, featureElementIndex);
         }
     }
+
     pushElementGroup(vertexIndex, elementIndex);
     this.vertexLength = vertexIndex;
     this.elementLength = elementIndex;

@@ -158,7 +158,7 @@ GeoJSONSource.prototype = util.inherit(Evented, /** @lends GeoJSONSource.prototy
                 return;
             }
 
-            tile.loadVectorData(data);
+            tile.loadVectorData(data, this.map.style);
             this.fire('tile.load', {tile: tile});
 
         }.bind(this), this.workerID);

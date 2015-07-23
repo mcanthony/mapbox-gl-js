@@ -93,7 +93,7 @@ Tile.prototype = {
      * @returns {undefined}
      * @private
      */
-    loadVectorData: function(data) {
+    loadVectorData: function(data, style) {
         this.loaded = true;
 
         // empty GeoJSON tile
@@ -105,7 +105,7 @@ Tile.prototype = {
 
         this.buckets = {};
         for (var k in data.buckets) {
-            this.buckets[k] = Bucket.unserialize(data.buckets[k]);
+            this.buckets[k] = Bucket.unserialize(data.buckets[k], style);
         }
     },
 
