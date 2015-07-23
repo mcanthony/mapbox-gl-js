@@ -80,6 +80,7 @@ WorkerTile.prototype.parse = function(data, layers, constants, actor, callback) 
             layers: bucketLayers,
             buffers: buffers,
             constants: constants,
+            zoom: this.zoom,
             z: this.zoom,
             overscaling: this.overscaling,
             collisionDebug: this.collisionDebug,

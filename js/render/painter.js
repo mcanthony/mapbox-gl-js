@@ -51,7 +51,7 @@ Painter.prototype.draw = function(bucket, layer, tile) {
 
     // Allow circles to be drawn across boundaries, so that
     // large circles are not clipped to tiles
-    if (bucket.disableStencilTest) gl.disable(gl.STENCIL_TEST);
+    if (bucket.klass.disableStencilTest) gl.disable(gl.STENCIL_TEST);
 
     gl.switchShader(shader, tile.posMatrix, tile.exMatrix);
 

@@ -36,36 +36,34 @@ module.exports = Bucket.createClass({
 
         pos: {
             value: function() {
-                return function(data) {
+                return function(feature) {
                     return [
-                        (data.geometry.x * 2) + ((data.extrude[0] + 1) / 2),
-                        (data.geometry.y * 2) + ((data.extrude[1] + 1) / 2)
+                        (feature.geometry.x * 2) + ((feature.extrude[0] + 1) / 2),
+                        (feature.geometry.y * 2) + ((feature.extrude[1] + 1) / 2)
                     ];
                 };
             },
             type: Bucket.AttributeType.SHORT,
-            components: 2
+            components: 2,
+            shared: true
         },
 
         size: {
             value: Bucket.createStyleValue('circle-radius', {multiplier: 10}),
             type: Bucket.AttributeType.UNSIGNED_BYTE,
-            components: 1,
-            isPerLayer: true
+            components: 1
         },
 
         color: {
             value: Bucket.createStyleValue('circle-color', {multiplier: 255}),
             type: Bucket.AttributeType.UNSIGNED_BYTE,
-            components: 4,
-            isPerLayer: true
+            components: 4
         },
 
         opacity: {
             value: Bucket.createStyleValue('circle-opacity', {multiplier: 255}),
             type: Bucket.AttributeType.UNSIGNED_BYTE,
-            components: 1,
-            isPerLayer: true
+            components: 1
         },
 
         blur: {
@@ -74,15 +72,14 @@ module.exports = Bucket.createClass({
             value: function(layer) {
                 var blurValue = Bucket.createStyleValue('circle-blur').call(this, layer);
                 var radiusValue = Bucket.createStyleValue('circle-radius').call(this, layer);
-                var devicePixelRatio = this.params.devicePixelRatio;
 
                 return function(layer) {
 
-                    function applyAntialiasing(data) {
-                        var innerBlurValue = blurValue instanceof Function ? blurValue(data) : blurValue;
-                        var innerRadiusValue = radiusValue instanceof Function ? radiusValue(data) : radiusValue;
-                        return [Math.max(1 / (devicePixelRatio || 1) / innerRadiusValue[0], innerBlurValue[0]) * 10];
-                    }
+                    var applyAntialiasing = (function(feature) {
+                        var innerBlurValue = blurValue instanceof Function ? blurValue(feature) : blurValue;
+                        var innerRadiusValue = radiusValue instanceof Function ? radiusValue(feature) : radiusValue;
+                        return [Math.max(1 / this.devicePixelRatio / innerRadiusValue[0], innerBlurValue[0]) * 10];
+                    }).bind(this);
 
                     if (blurValue instanceof Function || radiusValue instanceof Function) {
                         return applyAntialiasing;
@@ -90,8 +87,7 @@ module.exports = Bucket.createClass({
                         return applyAntialiasing({});
                     }
                 };
-            },
-            isPerLayer: true
+            }
         }
     }
 
