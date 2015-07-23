@@ -130,7 +130,6 @@ function BucketClass(params) {
     this.id = this.layers[0].id;
     this.constants = params.constants; // TODO gross
     this.devicePixelRatio = params.devicePixelRatio || 1; // TODO gross
-    this.isElementBufferStale = true; // TODO deperecate
 
     this.vertexAttributes = [];
     for (var key in this.vertexAttributeParams) {
@@ -153,7 +152,6 @@ function BucketClass(params) {
                 name: attributeName,
                 components: attributeParams.components || 1,
                 type: attributeParams.type || BucketSingleton.AttributeType.UNSIGNED_BYTE,
-                isStale: true, // TODO deprecate
                 value: attributeValue,
                 isFeatureConstant: !(attributeValue instanceof Function),
                 layer: layer,
@@ -220,7 +218,6 @@ BucketClass.prototype.serialize = function() {
         elementGroups: this.elementGroups,
         elementLength: this.elementLength,
         vertexLength: this.vertexLength,
-        isElementBufferStale: this.isElementBufferStale,
         elementBuffer: this.elementBuffer.serialize(),
         vertexBuffer: this.vertexBuffer.serialize(),
 
@@ -234,7 +231,6 @@ BucketClass.prototype.serialize = function() {
  *
  * @private
  * @param [options]
- * @param {boolean} [options.isStale]
  * @param {boolean} [options.isFeatureConstant]
  * @param {boolean} [options.eachLayer]
  * @param callback
@@ -248,7 +244,6 @@ BucketClass.prototype.eachVertexAttribute = function(params, callback) {
     for (var i = 0; i < this.vertexAttributes.length; i++) {
         var attribute = this.vertexAttributes[i];
 
-        if (params.isStale !== undefined && params.isStale !== attribute.isStale) continue;
         if (params.isFeatureConstant !== undefined && params.isFeatureConstant !== attribute.isFeatureConstant) continue;
         if (params.layer !== undefined && !(!attribute.layer || params.layer.id === attribute.layer.id || params.layer === attribute.layer.id)) continue;
 
@@ -263,19 +258,10 @@ BucketClass.prototype.eachVertexAttribute = function(params, callback) {
  */
 // TODO take features as an argument, don't store as a property
 // TODO refactor and simplify, even at the cost of perf
-// TODO refactor with knowledge that buffers aren't reusable, probably removing all the "isStale" stuff.
 // TODO create a buffer per attribute or attribute group
 // TODO allow a set of attribute names to be passed
 BucketClass.prototype.refreshBuffers = function() {
     var that = this;
-
-    var staleVertexAttributes = collect(this.eachVertexAttribute.bind(this), {
-        isStale: true,
-        isFeatureConstant: false
-    });
-
-    // Avoid iterating over everything if all buffers are up to date
-    if (!staleVertexAttributes.length && !this.isElementBufferStale) return;
 
     // Refresh element groups
     var elementGroup = { vertexIndex: 0, elementIndex: 0 };
@@ -290,11 +276,10 @@ BucketClass.prototype.refreshBuffers = function() {
     // Refresh vertex attribute buffers
     var vertexIndex = 0;
     function vertexCallback(feature) {
-        for (var j = 0; j < staleVertexAttributes.length; j++) {
-            var attribute = staleVertexAttributes[j];
+        that.eachVertexAttribute({isFeatureConstant: false}, function(attribute) {
             var value = attribute.value.call(that, feature);
             that.vertexBuffer.setAttribute(vertexIndex, attribute.vertexBufferName, value);
-        }
+        });
         elementGroup.vertexLength++;
         return vertexIndex++;
     }
@@ -302,9 +287,7 @@ BucketClass.prototype.refreshBuffers = function() {
     // Refresh the element buffer
     var elementIndex = 0;
     function elementCallback(feature) {
-        if (that.isElementBufferStale) {
-            that.elementBuffer.add(feature);
-        }
+        that.elementBuffer.add(feature);
         elementGroup.elementLength++;
         return elementIndex++;
     }
@@ -323,10 +306,6 @@ BucketClass.prototype.refreshBuffers = function() {
         }
     }
     pushElementGroup(vertexIndex, elementIndex);
-
-    // Update object state, marking everything as "not stale" and updating lengths.
-    for (var l in staleVertexAttributes) staleVertexAttributes[l].isStale = false;
-    this.isElementBufferStale = false;
     this.vertexLength = vertexIndex;
     this.elementLength = elementIndex;
 };
