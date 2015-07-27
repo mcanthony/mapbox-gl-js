@@ -75,20 +75,18 @@ module.exports = Bucket.createClass({
                 var blurValue = Bucket.createStyleValue('circle-blur').call(this, layer);
                 var radiusValue = Bucket.createStyleValue('circle-radius').call(this, layer);
 
-                return function(layer) {
+                var applyAntialiasing = function(feature) {
+                    var innerBlurValue = blurValue instanceof Function ? blurValue(feature) : blurValue;
+                    var innerRadiusValue = radiusValue instanceof Function ? radiusValue(feature) : radiusValue;
 
-                    var applyAntialiasing = (function(feature) {
-                        var innerBlurValue = blurValue instanceof Function ? blurValue(feature) : blurValue;
-                        var innerRadiusValue = radiusValue instanceof Function ? radiusValue(feature) : radiusValue;
-                        return [Math.max(1 / this.devicePixelRatio / innerRadiusValue[0], innerBlurValue[0]) * 10];
-                    }).bind(this);
+                    return [Math.max(1 / this.devicePixelRatio / innerRadiusValue[0], innerBlurValue[0]) * 10];
+                }.bind(this);
 
-                    if (blurValue instanceof Function || radiusValue instanceof Function) {
-                        return applyAntialiasing;
-                    } else {
-                        return applyAntialiasing({});
-                    }
-                };
+                if (blurValue instanceof Function || radiusValue instanceof Function) {
+                    return applyAntialiasing;
+                } else {
+                    return applyAntialiasing({});
+                }
             }
         }
     }

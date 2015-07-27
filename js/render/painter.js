@@ -64,16 +64,14 @@ Painter.prototype.draw = function(bucket, layer, tile) {
         gl['vertexAttrib' + attribute.components + 'fv'](attributeShaderLocation, wrap(attribute.value));
     });
 
-    for (var i = 0; i < bucket.elementGroups.length; i++) {
-        var elementGroup = bucket.elementGroups[i];
-
+    bucket.eachElementGroup(function(elementGroup) {
         bucket.elementBuffer.bind(gl);
 
-        bucket.eachVertexAttributeGroup(function(group) {
-            var vertexBuffer = bucket.vertexBuffers[group];
+        bucket.eachVertexAttributeGroup(function(attributeGroup) {
+            var vertexBuffer = bucket.vertexBuffers[attributeGroup];
             vertexBuffer.bind(gl);
 
-            bucket.eachVertexAttribute({isFeatureConstant: false, group: group, layer: layer}, function(attribute) {
+            bucket.eachVertexAttribute({isFeatureConstant: false, group: attributeGroup, layer: layer}, function(attribute) {
                 var attributeShaderLocation = shader[attribute.shaderName];
                 util.assert(attributeShaderLocation !== undefined);
 
@@ -92,7 +90,7 @@ Painter.prototype.draw = function(bucket, layer, tile) {
             gl[Buffer.INDEX_ATTRIBUTE_TYPE.name],
             bucket.elementBuffer.getIndexOffset(elementGroup.elementIndex)
         );
-    }
+    });
 
     if (bucket.klass.disableStencilTest) gl.enable(gl.STENCIL_TEST);
 };

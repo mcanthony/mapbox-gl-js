@@ -251,24 +251,32 @@ WorkerTile.prototype.parse = function(data, layers, constants, actor, callback) 
         }
 
         var elementGroups = {};
+
+        var serializedBuffers = {};
         var serializedBuckets = {};
+        var transferrables = [];
 
         for (k in buckets) {
             var bucket = buckets[k];
             elementGroups[k] = bucket.elementGroups;
             if (bucket.isMapboxBucket) {
                 serializedBuckets[k] = bucket.serialize();
+                transferrables = transferrables.concat(bucket.getTransferrables());
             }
         }
 
-        var serializedBuffers = serializeBuffers(buffers);
+        for (var j in buffers) {
+            var buffer = buffers[j];
+            serializedBuffers[j] = buffer.serialize();
+            transferrables = transferrables.concat(buffer.getTransferrables());
+        }
 
         callback(null, {
-            elementGroups: elementGroups,
-            buffers: serializedBuffers.buffers,
-            extent: extent,
-            buckets: serializedBuckets
-        }, serializedBuffers.transferables);
+            buffers: serializedBuffers,
+            buckets: serializedBuckets,
+            elementGroups: elementGroups, // TODO Is this duplicate?
+            extent: extent
+        }, transferrables);
     }
 };
 
@@ -307,7 +315,7 @@ WorkerTile.prototype.redoPlacement = function(angle, pitch, collisionDebug) {
             buffers: serializedBuffers.buffers,
             buckets: serializedBuckets
         },
-        transferables: serializedBuffers.transferables
+        transferrables: serializedBuffers.transferrables
     };
 
 };
@@ -315,17 +323,17 @@ WorkerTile.prototype.redoPlacement = function(angle, pitch, collisionDebug) {
 function serializeBuffers(buffers) {
     // TODO after transferring a buffer, we lose ownership of the object. Make sure this is
     // enforced.
-    var transferables = [];
+    var transferrables = [];
     var serializedBuffers = {};
 
     for (var bufferName in buffers) {
         var buffer = buffers[bufferName];
         serializedBuffers[bufferName] = buffer.serialize();
-        transferables.push(buffer.array || buffer.arrayBuffer);
+        transferrables.push(buffer.array || buffer.arrayBuffer);
     }
 
     return {
-        transferables: transferables,
+        transferrables: transferrables,
         buffers: serializedBuffers
     };
 }

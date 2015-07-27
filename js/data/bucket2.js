@@ -66,12 +66,12 @@ var BucketSingleton = {
             var calculateGlobal = MapboxGLFunction(styleLayer.getPaintProperty(name));
             var calculate = calculateGlobal({$zoom: this.zoom});
 
-            var inner = (function(feature) {
+            var inner = function(feature) {
                 util.assert(feature.properties, 'The elementVertexGenerator must provide feature properties');
                 return wrap(calculate(feature.properties)).map(function(value) {
                     return value * (params.multiplier || 1);
                 });
-            }).bind(this);
+            };
 
             if (calculate.isFeatureConstant) {
                 return inner({properties: {}});
@@ -241,7 +241,7 @@ BucketClass.prototype.getTransferrables = function() {
         transferrables = transferrables.concat(this.vertexBuffers[group].getTransferrables());
     });
     return transferrables.concat(this.elementBuffer.getTransferrables());
-}
+};
 
 /**
  * Iterate over this bucket's vertex attributes
@@ -276,6 +276,16 @@ BucketClass.prototype.eachVertexAttribute = function(params, callback) {
 BucketClass.prototype.eachVertexAttributeGroup = function(callback) {
     for (var i = 0; i < this.vertexAttributeGroups.length; i++) {
         callback.call(this, this.vertexAttributeGroups[i]);
+    }
+};
+
+/**
+ * @private
+ * @param callback
+ */
+BucketClass.prototype.eachElementGroup = function(callback) {
+    for (var i = 0; i < this.elementGroups.length; i++) {
+        callback.call(this, this.elementGroups[i]);
     }
 };
 
