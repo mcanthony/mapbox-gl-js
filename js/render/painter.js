@@ -4,8 +4,6 @@ var glutil = require('./gl_util');
 var browser = require('../util/browser');
 var mat4 = require('gl-matrix').mat4;
 var FrameHistory = require('./frame_history');
-var util = require('../util/util');
-var Buffer = require('../data/buffer2');
 
 /*
  * Initialize a new painter object.
@@ -36,65 +34,6 @@ Painter.prototype.resize = function(width, height) {
     this.height = height * browser.devicePixelRatio;
     gl.viewport(0, 0, this.width, this.height);
 };
-
-// TODO move to Bucket class
-Painter.prototype.draw = function(bucket, layer, tile) {
-
-    // Empty GeoJSON tiles have nothing to draw. They have no buckets or buffers.
-    if (!tile.buckets || !tile.buffers) return;
-
-    // short-circuit if tile is empty
-    if (!bucket.elementLength) return;
-
-    var gl = this.gl;
-    var shader = this[bucket.klass.shader];
-
-    // Allow circles to be drawn across boundaries, so that
-    // large circles are not clipped to tiles
-    if (bucket.klass.disableStencilTest) gl.disable(gl.STENCIL_TEST);
-
-    gl.switchShader(shader, tile.posMatrix, tile.exMatrix);
-
-    // Bind per-layer values as vertex attributes
-    bucket.eachVertexAttribute({isFeatureConstant: true, layer: layer}, function(attribute) {
-        var attributeShaderLocation = shader[attribute.shaderName];
-        util.assert(attributeShaderLocation !== undefined);
-        util.assert(attributeShaderLocation !== 0);
-        gl.disableVertexAttribArray(attributeShaderLocation);
-        gl['vertexAttrib' + attribute.components + 'fv'](attributeShaderLocation, wrap(attribute.value));
-    });
-
-    bucket.eachElementGroup(function(elementGroup) {
-        bucket.elementBuffer.bind(gl);
-
-        bucket.eachVertexAttributeGroup(function(attributeGroup) {
-            var vertexBuffer = bucket.vertexBuffers[attributeGroup];
-            vertexBuffer.bind(gl);
-
-            bucket.eachVertexAttribute({isFeatureConstant: false, group: attributeGroup, layer: layer}, function(attribute) {
-                var attributeShaderLocation = shader[attribute.shaderName];
-                util.assert(attributeShaderLocation !== undefined);
-
-                vertexBuffer.bindVertexAttribute(
-                    gl,
-                    attributeShaderLocation,
-                    elementGroup.vertexIndex,
-                    attribute.bufferName
-                );
-            });
-        });
-
-        gl.drawElements(
-            gl[bucket.klass.mode.name],
-            elementGroup.elementLength * bucket.mode.verticiesPerElement,
-            gl[Buffer.INDEX_ATTRIBUTE_TYPE.name],
-            bucket.elementBuffer.getIndexOffset(elementGroup.elementIndex)
-        );
-    });
-
-    if (bucket.klass.disableStencilTest) gl.enable(gl.STENCIL_TEST);
-};
-
 
 Painter.prototype.setup = function() {
     var gl = this.gl;
@@ -417,7 +356,3 @@ Painter.prototype.getTexture = function(size) {
     var textures = this.reusableTextures[size];
     return textures && textures.length > 0 ? textures.pop() : null;
 };
-
-function wrap(value) {
-    return Array.isArray(value) ? value : [ value ];
-}

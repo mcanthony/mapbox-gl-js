@@ -3,5 +3,8 @@
 module.exports = drawCircles;
 
 function drawCircles(painter, layer, posMatrix, tile) {
-    painter.draw(tile.buckets && tile.buckets[layer.ref || layer.id], layer, tile);
+    var bucket = tile.buckets && tile.buckets[layer.ref || layer.id];
+    if (bucket) {
+        bucket.draw(painter, layer, tile);
+    }
 }

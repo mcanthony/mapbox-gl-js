@@ -95,18 +95,12 @@ var BucketSingleton = {
     createClass: function(params) {
         function klass() { BucketClass.apply(this, arguments); }
 
-        // TODO delete all klass properties?
         klass.type = params.type;
-        klass.shader = params.shader;
-        klass.mode = params.mode;
-        klass.disableStencilTest = params.disableStencilTest;
-        klass.vertexAttributeParams = params.vertexAttributes;
 
         klass.prototype = util.inherit(BucketClass, {
-            klass: klass, // TODO delete klass reference?
-            type: klass.type,
-            shader: klass.shader,
-            mode: klass.mode,
+            type: params.type,
+            shader: params.shader,
+            mode: params.mode,
             disableStencilTest: params.disableStencilTest,
             elementVertexGenerator: params.elementVertexGenerator,
             vertexAttributeParams: params.vertexAttributes
@@ -224,7 +218,7 @@ BucketClass.prototype.serialize = function() {
 
     return {
         isSerializedMapboxBucket: true,
-        type: this.klass.type,
+        type: this.type,
         elementGroups: this.elementGroups,
         elementLength: this.elementLength,
         vertexLength: this.vertexLength,
@@ -287,6 +281,64 @@ BucketClass.prototype.eachElementGroup = function(callback) {
     for (var i = 0; i < this.elementGroups.length; i++) {
         callback.call(this, this.elementGroups[i]);
     }
+};
+
+BucketClass.prototype.draw = function(painter, layer, tile) {
+
+    // Empty GeoJSON tiles have nothing to draw. They have no buckets or buffers.
+    if (!tile.buckets || !tile.buffers) return;
+
+    // short-circuit if tile is empty
+    if (!this.elementLength) return;
+
+    var gl = painter.gl;
+    var shader = painter[this.shader];
+
+    // Allow circles to be drawn across boundaries, so that
+    // large circles are not clipped to tiles
+    if (this.disableStencilTest) gl.disable(gl.STENCIL_TEST);
+
+    gl.switchShader(shader, tile.posMatrix, tile.exMatrix);
+
+    // Bind per-layer values as vertex attributes
+    this.eachVertexAttribute({isFeatureConstant: true, layer: layer}, function(attribute) {
+        var attributeShaderLocation = shader[attribute.shaderName];
+        util.assert(attributeShaderLocation !== undefined);
+        util.assert(attributeShaderLocation !== 0);
+        gl.disableVertexAttribArray(attributeShaderLocation);
+        gl['vertexAttrib' + attribute.components + 'fv'](attributeShaderLocation, wrap(attribute.value));
+    });
+
+    this.eachElementGroup(function(elementGroup) {
+        this.elementBuffer.bind(gl);
+
+        this.eachVertexAttributeGroup(function(attributeGroup) {
+            var vertexBuffer = this.vertexBuffers[attributeGroup];
+            vertexBuffer.bind(gl);
+
+            this.eachVertexAttribute({isFeatureConstant: false, group: attributeGroup, layer: layer}, function(attribute) {
+                var attributeShaderLocation = shader[attribute.shaderName];
+                util.assert(attributeShaderLocation !== undefined);
+
+                vertexBuffer.bindVertexAttribute(
+                    gl,
+                    attributeShaderLocation,
+                    elementGroup.vertexIndex,
+                    attribute.bufferName
+                );
+            });
+        });
+
+        gl.drawElements(
+            gl[this.mode.name],
+            elementGroup.elementLength * this.mode.verticiesPerElement,
+            gl[Buffer.INDEX_ATTRIBUTE_TYPE.name],
+            this.elementBuffer.getIndexOffset(elementGroup.elementIndex)
+        );
+    });
+
+    if (this.disableStencilTest) gl.enable(gl.STENCIL_TEST);
+
 };
 
 /**
