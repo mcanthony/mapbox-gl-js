@@ -212,9 +212,10 @@ BucketClass.prototype.serialize = function() {
     this.refreshBuffers();
 
     var serializedVertexBuffers = {};
-    this.eachVertexAttributeGroup(function(group) {
+    for (var i in this.vertexAttributeGroups) {
+        var group = this.vertexAttributeGroups[i];
         serializedVertexBuffers[group] = this.vertexBuffers[group].serialize();
-    });
+    }
 
     return {
         isSerializedMapboxBucket: true,
@@ -229,11 +230,13 @@ BucketClass.prototype.serialize = function() {
 };
 
 // TODO this operation has mad side effects btw
+// Fix by making buffers ephemeral & cached
 BucketClass.prototype.getTransferrables = function() {
     var transferrables = [];
-    this.eachVertexAttributeGroup(function(group) {
+    for (var i in this.vertexAttributeGroups) {
+        var group = this.vertexAttributeGroups[i];
         transferrables = transferrables.concat(this.vertexBuffers[group].getTransferrables());
-    });
+    }
     return transferrables.concat(this.elementBuffer.getTransferrables());
 };
 
@@ -263,26 +266,6 @@ BucketClass.prototype.eachVertexAttribute = function(params, callback) {
     }
 };
 
-/**
- * @private
- * @param callback
- */
-BucketClass.prototype.eachVertexAttributeGroup = function(callback) {
-    for (var i = 0; i < this.vertexAttributeGroups.length; i++) {
-        callback.call(this, this.vertexAttributeGroups[i]);
-    }
-};
-
-/**
- * @private
- * @param callback
- */
-BucketClass.prototype.eachElementGroup = function(callback) {
-    for (var i = 0; i < this.elementGroups.length; i++) {
-        callback.call(this, this.elementGroups[i]);
-    }
-};
-
 BucketClass.prototype.draw = function(painter, layer, tile) {
 
     // Empty GeoJSON tiles have nothing to draw. They have no buckets or buffers.
@@ -309,25 +292,33 @@ BucketClass.prototype.draw = function(painter, layer, tile) {
         gl['vertexAttrib' + attribute.components + 'fv'](attributeShaderLocation, wrap(attribute.value));
     });
 
-    this.eachElementGroup(function(elementGroup) {
+    for (var i in this.elementGroups) {
+        var elementGroup = this.elementGroups[i];
+
         this.elementBuffer.bind(gl);
 
-        this.eachVertexAttributeGroup(function(attributeGroup) {
+        for (var j in this.vertexAttributeGroups) {
+            var attributeGroup = this.vertexAttributeGroups[j];
+
             var vertexBuffer = this.vertexBuffers[attributeGroup];
             vertexBuffer.bind(gl);
 
-            this.eachVertexAttribute({isFeatureConstant: false, group: attributeGroup, layer: layer}, function(attribute) {
-                var attributeShaderLocation = shader[attribute.shaderName];
-                util.assert(attributeShaderLocation !== undefined);
+            /* eslint no-loop-func:0 */
+            this.eachVertexAttribute(
+                {isFeatureConstant: false, group: attributeGroup, layer: layer},
+                function(attribute) {
+                    var attributeShaderLocation = shader[attribute.shaderName];
+                    util.assert(attributeShaderLocation !== undefined);
 
-                vertexBuffer.bindVertexAttribute(
-                    gl,
-                    attributeShaderLocation,
-                    elementGroup.vertexIndex,
-                    attribute.bufferName
-                );
-            });
-        });
+                    vertexBuffer.bindVertexAttribute(
+                        gl,
+                        attributeShaderLocation,
+                        elementGroup.vertexIndex,
+                        attribute.bufferName
+                    );
+                }
+            );
+        }
 
         gl.drawElements(
             gl[this.mode.name],
@@ -335,7 +326,7 @@ BucketClass.prototype.draw = function(painter, layer, tile) {
             gl[Buffer.INDEX_ATTRIBUTE_TYPE.name],
             this.elementBuffer.getIndexOffset(elementGroup.elementIndex)
         );
-    });
+    }
 
     if (this.disableStencilTest) gl.enable(gl.STENCIL_TEST);
 
@@ -354,7 +345,9 @@ BucketClass.prototype.refreshBuffers = function() {
     var that = this;
 
     this.vertexBuffers = {};
-    this.eachVertexAttributeGroup(function(group) {
+    for (var i in this.vertexAttributeGroups) {
+        var group = this.vertexAttributeGroups[i];
+
         var attributes = collect(that.eachVertexAttribute.bind(that), {
             isFeatureConstant: false,
             group: group
@@ -370,7 +363,7 @@ BucketClass.prototype.refreshBuffers = function() {
                 };
             })
         });
-    });
+    }
 
 
     this.elementBuffer = new Buffer({
@@ -396,12 +389,13 @@ BucketClass.prototype.refreshBuffers = function() {
     // Refresh vertex attribute buffers
     var vertexIndex = 0;
     function vertexCallback(feature) {
-        that.eachVertexAttributeGroup(function(group) {
+        for (var i in that.vertexAttributeGroups) {
+            var group = that.vertexAttributeGroups[i];
             that.eachVertexAttribute({isFeatureConstant: false, group: group}, function(attribute) {
                 var value = attribute.value.call(that, feature);
                 that.vertexBuffers[group].setAttribute(vertexIndex, attribute.bufferName, value);
             });
-        });
+        }
         elementGroup.vertexLength++;
         return vertexIndex++;
     }
