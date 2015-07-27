@@ -6,7 +6,7 @@ var util = require('../util/util');
 
 /**
  * The `Buffer` class is responsible for managing one ArrayBuffer, which may contain one or more
- * "attributes" per "item". `Buffer`s are created and populated by `Bucket`s.
+ * "attributes" per "element". `Buffer`s are created and populated by `Bucket`s.
  *
  * @class Buffer
  * @namespace Bucket
@@ -20,7 +20,7 @@ function Buffer(options) {
         var clone = options;
         this.type = clone.type;
         this.attributes = clone.attributes;
-        this.itemSize = clone.itemSize;
+        this.elementSize = clone.elementSize;
         this.size = clone.size;
         this.index = clone.index;
         this.arrayBuffer = clone.arrayBuffer;
@@ -37,7 +37,7 @@ function Buffer(options) {
         // Normalize attribute definitions.
         // Attributes may be passed as an object or an array.
         this.attributes = {};
-        this.itemSize = 0;
+        this.elementSize = 0;
         var attributeAlignment = (this.type === Buffer.BufferType.VERTEX) ? Buffer.VERTEX_ATTRIBUTE_ALIGNMENT : null;
         for (var key in options.attributes) {
             var attribute = options.attributes[key];
@@ -46,8 +46,8 @@ function Buffer(options) {
             attribute.components = attribute.components || 1;
             attribute.type = attribute.type || Buffer.AttributeType.UNSIGNED_BYTE;
             attribute.size = attribute.type.size * attribute.components;
-            attribute.offset = this.itemSize;
-            this.itemSize = align(attribute.offset + attribute.size, attributeAlignment);
+            attribute.offset = this.elementSize;
+            this.elementSize = align(attribute.offset + attribute.size, attributeAlignment);
 
             this.attributes[attribute.name] = attribute;
         }
@@ -66,29 +66,29 @@ function Buffer(options) {
 }
 
 /**
- * Add an item to the end of the buffer.
+ * Add an element to the end of the buffer.
  */
-Buffer.prototype.add = function(item) {
-    this.set(this.index++, item);
+Buffer.prototype.add = function(element) {
+    this.set(this.index++, element);
     return this.index;
 };
 
 /**
- * Set an item at a particuar index within the buffer
+ * Set an element at a particuar index within the buffer
  */
-Buffer.prototype.set = function(index, item) {
-    if (typeof item === "object" && item !== null && !Array.isArray(item)) {
-        for (var attributeName in item) {
-           this.setAttribute(index, attributeName, item[attributeName]);
+Buffer.prototype.set = function(index, element) {
+    if (typeof element === "object" && element !== null && !Array.isArray(element)) {
+        for (var attributeName in element) {
+           this.setAttribute(index, attributeName, element[attributeName]);
         }
     } else {
         util.assert(this.isSingleAttributeBuffer);
-        this.setAttribute(index, this.singleAttribute.name, item);
+        this.setAttribute(index, this.singleAttribute.name, element);
     }
 };
 
 /**
- * Set an attribute for an item at a particuar index within the buffer
+ * Set an attribute for an element at a particuar index within the buffer
  */
 Buffer.prototype.setAttribute = function(index, attributeName, value) {
     if (this.getIndexOffset(index + 1) > this.size) {
@@ -138,7 +138,7 @@ Buffer.prototype.bindVertexAttribute = function(gl, shaderLocation, startIndex, 
         attribute.components,
         gl[attribute.type.name],
         false,
-        this.itemSize,
+        this.elementSize,
         this.getIndexAttributeOffset(startIndex, attribute.name)
     );
 };
@@ -166,14 +166,14 @@ Buffer.prototype.resize = function(size) {
 };
 
 /**
- * Get the byte offset of a particular item index
+ * Get the byte offset of a particular element index
  */
 Buffer.prototype.getIndexOffset = function(index) {
-    return index * this.itemSize;
+    return index * this.elementSize;
 };
 
 /**
- * Get the byte offset of an attribute at a particular item index
+ * Get the byte offset of an attribute at a particular element index
  */
 Buffer.prototype.getIndexAttributeOffset = function(index, attributeName, componentIndex) {
     var attribute = this.attributes[attributeName];
@@ -194,22 +194,22 @@ Buffer.prototype.refreshArrayBufferViews = function() {
 };
 
 /**
- * Get the item at a particular index from the ArrayBuffer.
+ * Get the element at a particular index from the ArrayBuffer.
  */
 Buffer.prototype.get = function(index) {
-    var item = {};
+    var element = {};
     for (var attributeName in this.attributes) {
         var attribute = this.attributes[attributeName];
-        item[attributeName] = [];
+        element[attributeName] = [];
 
         for (var componentIndex = 0; componentIndex < attribute.components; componentIndex++) {
             var offset = this.getIndexAttributeOffset(index, attributeName, componentIndex) / attribute.type.size;
             var arrayBufferView = this.arrayBufferViews[attribute.type.name];
             var value = arrayBufferView[offset];
-            item[attributeName][componentIndex] = value;
+            element[attributeName][componentIndex] = value;
         }
     }
-    return item;
+    return element;
 };
 
 // TODO combine serialize and getTransferrables method, destroy the local copy once ownership
@@ -222,7 +222,7 @@ Buffer.prototype.serialize = function() {
     return {
         type: this.type,
         attributes: this.attributes,
-        itemSize: this.itemSize,
+        elementSize: this.elementSize,
         size: this.size,
         index: this.index,
         arrayBuffer: this.arrayBuffer,
