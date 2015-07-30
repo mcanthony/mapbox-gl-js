@@ -15,6 +15,7 @@ module.exports = function(self) {
 };
 
 function Worker(self) {
+
     this.self = self;
     this.actor = new Actor(self, this);
     this.loading = {};
@@ -54,6 +55,20 @@ util.extend(Worker.prototype, {
 
             this.loaded[source] = this.loaded[source] || {};
             this.loaded[source][uid] = tile;
+        }
+    },
+
+    'update buffers': function(params, callback) {
+        var tiles = this.loaded[params.source];
+        if (tiles && tiles[params.tile]) {
+            var tile = tiles[params.tile];
+            console.log(Object.keys(tile.buckets));
+            if (tile.buckets && tile.buckets[params.bucket]) {
+                debugger;
+                var bucket = tile.buckets[params.bucket];
+                var buffers = bucket.updateBuffers(params.buffers);
+                callback(null, buffers, Object.values(buffers));
+            }
         }
     },
 

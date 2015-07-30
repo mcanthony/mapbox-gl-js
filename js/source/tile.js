@@ -84,6 +84,10 @@ Tile.prototype = {
         };
     },
 
+    updateBuffers: function() {
+
+    },
+
     /**
      * Given a data object with a 'buffers' property, load it into
      * this tile's elementGroups and buffers properties and set loaded

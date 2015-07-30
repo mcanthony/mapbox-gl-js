@@ -397,6 +397,7 @@ Style.prototype = util.inherit(Evented, {
     setPaintProperty: function(layer, name, value, klass) {
         this.getLayer(layer).setPaintProperty(name, value, klass);
         this.fire('change');
+        this._updateBuffers();
     },
 
     getPaintProperty: function(layer, name, klass) {
@@ -439,6 +440,13 @@ Style.prototype = util.inherit(Evented, {
     _updateSources: function(transform) {
         for (var id in this.sources) {
             this.sources[id].update(transform);
+        }
+    },
+
+    _updateBuffers: function() {
+        this._broadcastLayers();
+        for (var id in this.sources) {
+            this.sources[id]._updateBuffers();
         }
     },
 

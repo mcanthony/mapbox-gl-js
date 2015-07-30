@@ -67,6 +67,22 @@ exports._renderTiles = function(layers, painter) {
     }
 };
 
+exports._updateBuffers = function() {
+    // TODO async foreach
+    if (!this._pyramid) return;
+    var ids = this._pyramid.renderedIDs();
+    for (var i = 0; i < ids.length; i++) {
+        var tile = this._pyramid.getTile(ids[i])
+
+        this.dispatcher.send('update buffers', {
+            source: this.id,
+            tile: tile.uid
+        }, function(err, data) {
+            debugger;
+        });
+    }
+};
+
 exports._vectorFeaturesAt = function(coord, params, callback) {
     if (!this._pyramid)
         return callback(null, []);

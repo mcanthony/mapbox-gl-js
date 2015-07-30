@@ -121,6 +121,8 @@ function BucketClass(params) {
     this.zoom = params.zoom;
     this.features = [];
     this.devicePixelRatio = params.devicePixelRatio || 1; // TODO gross
+    this.tileSource = params.tileSource; // TODO gross
+    this.tileUID = params.tileUID; // TODO gross
 
     // TODO always take layerIds and style
     if (params.layers && params.constants) {
@@ -209,7 +211,7 @@ BucketClass.prototype.isMapboxBucket = true;
  * worker thread and the main thread.
  */
 BucketClass.prototype.serialize = function() {
-    this.refreshBuffers();
+    this.updateBuffers();
 
     var serializedVertexBuffers = {};
     for (var i in this.vertexAttributeGroups) {
@@ -340,13 +342,13 @@ BucketClass.prototype.draw = function(painter, layer, tile) {
 // TODO take features as an argument, don't store as a property
 // TODO refactor and simplify, even at the cost of perf
 // TODO create a buffer per attribute or attribute group
-// TODO allow a set of attribute names to be passed
-BucketClass.prototype.refreshBuffers = function() {
+BucketClass.prototype.updateBuffers = function(vertexAttributeGroups) {
+    vertexAttributeGroups = vertexAttributeGroups || this.vertexAttributeGroups;
     var that = this;
 
     this.vertexBuffers = {};
-    for (var i in this.vertexAttributeGroups) {
-        var group = this.vertexAttributeGroups[i];
+    for (var i in vertexAttributeGroups) {
+        var group = vertexAttributeGroups[i];
 
         var attributes = collect(that.eachVertexAttribute.bind(that), {
             isFeatureConstant: false,
@@ -364,7 +366,6 @@ BucketClass.prototype.refreshBuffers = function() {
             })
         });
     }
-
 
     this.elementBuffer = new Buffer({
         type: Buffer.BufferType.ELEMENT,
@@ -389,8 +390,8 @@ BucketClass.prototype.refreshBuffers = function() {
     // Refresh vertex attribute buffers
     var vertexIndex = 0;
     function vertexCallback(feature) {
-        for (var i in that.vertexAttributeGroups) {
-            var group = that.vertexAttributeGroups[i];
+        for (var i in vertexAttributeGroups) {
+            var group = vertexAttributeGroups[i];
             that.eachVertexAttribute({isFeatureConstant: false, group: group}, function(attribute) {
                 var value = attribute.value.call(that, feature);
                 that.vertexBuffers[group].setAttribute(vertexIndex, attribute.bufferName, value);
@@ -424,6 +425,13 @@ BucketClass.prototype.refreshBuffers = function() {
     pushElementGroup(vertexIndex, elementIndex);
     this.vertexLength = vertexIndex;
     this.elementLength = elementIndex;
+
+    var output = {};
+    for (var k in vertexAttributeGroups) {
+        var group = vertexAttributeGroups[k];
+        output[group] = this.vertexBuffers[group];
+    }
+    return output;
 };
 
 function collect(generator) {

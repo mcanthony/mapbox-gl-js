@@ -36,7 +36,7 @@ WorkerTile.prototype.parse = function(data, layers, constants, actor, callback) 
         layer,
         buffers = new BufferSet(),
         collisionTile = new CollisionTile(this.angle, this.pitch),
-        buckets = {},
+        buckets = this.buckets = {},
         bucketsInOrder = this.bucketsInOrder = [],
         bucketsBySourceLayer = {},
         bucketFilters = {};
@@ -86,7 +86,9 @@ WorkerTile.prototype.parse = function(data, layers, constants, actor, callback) 
             collisionDebug: this.collisionDebug,
             devicePixelRatio: this.devicePixelRatio,
             filter: filter,
-            isInteractive: layer.interactive
+            isInteractive: layer.interactive,
+            tileSource: this.source,
+            tileUid: this.uid
         });
 
         bucketFilters[bucket.id] = filter;
@@ -206,7 +208,7 @@ WorkerTile.prototype.parse = function(data, layers, constants, actor, callback) 
                     bucket.addFeatures(collisionTile);
                 }
             } else {
-                bucket.refreshBuffers();
+                bucket.updateBuffers();
             }
 
             var timeElapsed = Date.now() - timeStart;
