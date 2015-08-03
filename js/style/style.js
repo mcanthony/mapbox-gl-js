@@ -25,6 +25,7 @@ function Style(stylesheet, animationLoop) {
     this.spriteAtlas = new SpriteAtlas(512, 512);
     this.spriteAtlas.resize(browser.devicePixelRatio);
     this.lineAtlas = new LineAtlas(256, 512);
+    this.devicePixelRatio = browser.devicePixelRatio;
 
     this._layers = {};
     this._order  = [];
