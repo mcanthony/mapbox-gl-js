@@ -110,6 +110,12 @@ StyleLayer.prototype = {
                 }
             }
         }
+
+        this.paint = new PaintProperties[this.type]();
+        for (var j in this._cascaded) {
+            // TODO ought this to use zoom and zoomHistory?
+            this.paint[j] = this._cascaded[j].declaration.value;
+        }
     },
 
     recalculate: function(z, zoomHistory) {

@@ -117,7 +117,22 @@ test('Layer', function(t) {
 
 function createLayer(options, callback) {
     createStyle(function(err, style) {
-        var layer = new CircleLayer(style, options.id || 'map');
+        function getStyleLayer() {
+            var styleLayer = style.getLayer(options.id);
+            // styleLayer.recalculate(style.z, []);
+            return styleLayer.json();
+        }
+        function getStyleConstants() { return style.stylesheet.constants; }
+        function getStyleZoom() { return style.z; }
+
+        var layer = new CircleLayer(getStyleZoom(), getStyleLayer(), getStyleConstants());
+
+        function refresh() {
+            layer.setStyle(getStyleZoom(), getStyleLayer(), getStyleConstants());
+        }
+        style.on('change', refresh);
+        style.on('zoom', refresh);
+
         callback(err, layer, style);
     });
 }

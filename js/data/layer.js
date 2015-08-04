@@ -4,6 +4,7 @@ var util = require('../util/util');
 var Evented = require('../util/evented');
 var Buffer = require('./buffer2');
 var MapboxGLFunction = require('mapbox-gl-function');
+var StyleDeclarationSet = require('../style/style_declaration_set');
 
 // TODO add eachFeature method
 // TODO just use "layers" and "constants" (as are available in the worker thread) instead of `Style`
@@ -66,19 +67,9 @@ var Layer = module.exports = {
  * `LayerClass` itself is an abstract class, extended via the `Layer.createClass` method.
  * @private
  */
-function LayerClass(style, id) {
-    this.style = style;
-    this.id = id;
-    this.refreshAttributes();
-
-    // TODO be more granular, look for events that affect this layer in particular
-    var fireChange = this.fire.bind(this, 'change');
-
-    this.style.on('change', fireChange);
-    this.style.on('source.add', fireChange);
-    this.style.on('source.remove', fireChange);
-
-    this.on('change', this.refreshAttributes.bind(this));
+function LayerClass(zoom, style, constants) {
+    // TODO accept a single `Style` object in the constructor
+    this.setStyle(zoom, style, constants);
 }
 
 LayerClass.prototype = util.inherit(Evented, {});
@@ -125,9 +116,17 @@ LayerClass.prototype.createStyleAttributeValue = function(property, options) {
  * `refreshAttributes` should be called whenever the structure of the layer changes (i.e. by adding
  * a class or by calling setPaintProperty).
  */
-LayerClass.prototype.refreshAttributes = function() {
-    this.groups = [];
+LayerClass.prototype.setStyle = function(zoom, style, constants) {
+    this.zoom = zoom;
+    this.style = style;
+    this.constants = constants;
 
+    this.paintDeclarations = new StyleDeclarationSet('paint', this.style.type, this.style.paint, this.constants).values();
+    this.layoutDeclarations = new StyleDeclarationSet('layout', this.style.type, this.style.layout, this.constants).values();
+
+    // console.log(this.paintDeclarations);
+
+    this.groups = [];
     var inputs = this._getAttributes();
     var outputs = this.attributes = {};
 
@@ -151,18 +150,13 @@ LayerClass.prototype.refreshAttributes = function() {
             this.groups.push(group);
         }
     }
+
+    this.fire('change');
 };
 
 LayerClass.prototype._getStyleFunction = function(property) {
-    var layer = this.style.getLayer(this.id);
-
-    // Paint properties
-    if (layer._cascaded[property]) {
-        return layer._cascaded[property].declaration.calculate;
-    // Layout properties
-    } else {
-        return MapboxGLFunction(layer.layout[property]); // TODO cache this
-    }
+    var declaration = this.paintDeclarations[property] || this.layoutDeclarations[property];
+    return declaration.calculate || MapboxGLFunction(declaration.value); // TODO cache these
 };
 
 LayerClass.prototype.isStyleValueConstant = function(property) {
@@ -170,7 +164,7 @@ LayerClass.prototype.isStyleValueConstant = function(property) {
 };
 
 LayerClass.prototype.getStyleValue = function(property, vertex) {
-    return this._getStyleFunction(property)({$zoom: this.style.z})(vertex.properties || {});
+    return this._getStyleFunction(property)({$zoom: this.zoom})(vertex.properties || {});
 };
 
 LayerClass.prototype._resolveAttributeReference = function(attribute) {
