@@ -15,7 +15,7 @@
     "feature-filter": "^1.0.2",
     "geojson-vt": "^2.1.0",
     "gl-matrix": "^2.3.1",
-    "glify": "^0.5.0",
+    "glify": "git+https://github.com/mapbox/glify.git#2f3b6519aaf12e9752b47b5efd1740937e45d0a9",
     "mapbox-gl-function": "^1.0.0",
     "mapbox-gl-style-spec": "^8.2.0",
     "minifyify": "^7.0.1",
@@ -47,7 +47,7 @@
     "watchify": "^3.2.2"
   },
   "optionalDependencies": {
-    "gl": "git+https://github.com/mapbox/headless-gl.git#cce881612f24b60843da6db8b3e4a2f108793298"
+    "gl": "^2.1.3"
   },
   "browserify": {
     "transform": [
