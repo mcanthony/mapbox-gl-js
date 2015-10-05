@@ -15,7 +15,7 @@
     "feature-filter": "^1.0.2",
     "geojson-vt": "^2.1.0",
     "gl-matrix": "^2.3.1",
-    "glify": "^0.5.0",
+    "glify": "^0.5.1",
     "mapbox-gl-function": "^1.0.0",
     "mapbox-gl-style-spec": "^8.1.0",
     "minifyify": "^7.0.1",
@@ -35,7 +35,7 @@
     "bistre": "^1.0.1",
     "browserify": "^10.2.4",
     "budo": "^4.0.0",
-    "documentation": "git+https://github.com/documentationjs/documentation#d341019b32a8a257a93bd55586e7f09f42e29341",
+    "documentation": "git+https://github.com/documentationjs/documentation#593a6c1f5cfb6489d2e2c71ac63406625f702601",
     "eslint": "^1.5.0",
     "eslint-config-mourner": "^1.0.0",
     "istanbul": "^0.3.15",
@@ -72,6 +72,6 @@
     "production": "browserify js/mapbox-gl.js -d -t unassertify -p [minifyify --map mapbox-gl.js.map --output dist/mapbox-gl.js.map] --standalone mapboxgl > dist/mapbox-gl.js",
     "prepublish": "npm run build && npm run production",
     "cov": "istanbul cover prova test/js/*/*.js test/render.test.js -x js/lib/debugtext.js",
-    "docs": "node docs/_generate/generate.js"
+    "docs": "documentation --lint --github --format html --theme ./docs/_theme --output docs/api/"
   }
 }
