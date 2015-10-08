@@ -22,16 +22,16 @@ test('FillBucket', function(t) {
     var bucket = new FillBucket(buffers);
     t.ok(bucket);
 
-    t.equal(bucket.addFill([
+    t.equal(bucket.addFeature([[
         new Point(0, 0),
         new Point(10, 10)
-    ]), undefined);
+    ]]), undefined);
 
-    t.equal(bucket.addFill([
+    t.equal(bucket.addFeature([[
         new Point(0, 0),
         new Point(10, 10),
         new Point(10, 20)
-    ]), undefined);
+    ]]), undefined);
 
     t.equal(bucket.addFeature(feature.loadGeometry()), undefined);
 

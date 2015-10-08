@@ -1,6 +1,8 @@
 'use strict';
 
 var ElementGroups = require('./element_groups');
+var earcut = require('earcut');
+var classifyRings = require('../util/classify_rings');
 
 module.exports = FillBucket;
 
@@ -18,56 +20,69 @@ FillBucket.prototype.addFeatures = function() {
 };
 
 FillBucket.prototype.addFeature = function(lines) {
-    for (var i = 0; i < lines.length; i++) {
-        this.addFill(lines[i]);
+    var polygons = classifyRings(convertCoords(lines));
+    for (var i = 0; i < polygons.length; i++) {
+        this.addPolygon(polygons[i]);
     }
 };
 
-FillBucket.prototype.addFill = function(vertices) {
-    if (vertices.length < 3) {
-        //console.warn('a fill must have at least three vertices');
-        return;
+FillBucket.prototype.addPolygon = function(polygon) {
+    var numVertices = 0;
+    for (var k = 0; k < polygon.length; k++) {
+        numVertices += polygon[k].length;
     }
 
-    // Calculate the total number of vertices we're going to produce so that we
-    // can resize the buffer beforehand, or detect whether the current line
-    // won't fit into the buffer anymore.
-    // In order to be able to use the vertex buffer for drawing the antialiased
-    // outlines, we separate all polygon vertices with a degenerate (out-of-
-    // viewplane) vertex.
+    var fillVertex = this.buffers.fillVertex,
+        fillElement = this.buffers.fillElement,
+        outlineElement = this.buffers.outlineElement,
+        elementGroup = this.elementGroups.makeRoomFor(numVertices),
+        startIndex = fillVertex.length - elementGroup.vertexStartIndex,
+        flattened = [],
+        holeIndices = [],
+        prevIndex;
 
-    var len = vertices.length;
+    for (var r = 0; r < polygon.length; r++) {
+        var ring = polygon[r];
 
-    // Check whether this geometry buffer can hold all the required vertices.
-    this.elementGroups.makeRoomFor(len + 1);
-    var elementGroup = this.elementGroups.current;
+        if (r > 0) holeIndices.push(flattened.length / 2);
 
-    var fillVertex = this.buffers.fillVertex;
-    var fillElement = this.buffers.fillElement;
-    var outlineElement = this.buffers.outlineElement;
+        for (var v = 0; v < ring.length; v++) {
+            var vertex = ring[v];
 
-    // We're generating triangle fans, so we always start with the first coordinate in this polygon.
-    var firstIndex = fillVertex.length - elementGroup.vertexStartIndex,
-        prevIndex, currentIndex, currentVertex;
+            var currentIndex = fillVertex.length - elementGroup.vertexStartIndex;
+            fillVertex.push(vertex[0], vertex[1]);
+            elementGroup.vertexLength++;
 
-    for (var i = 0; i < vertices.length; i++) {
-        currentIndex = fillVertex.length - elementGroup.vertexStartIndex;
-        currentVertex = vertices[i];
+            if (v >= 1) {
+                outlineElement.push(prevIndex, currentIndex);
+                elementGroup.secondElementLength++;
+            }
 
-        fillVertex.push(currentVertex.x, currentVertex.y);
-        elementGroup.vertexLength++;
+            prevIndex = currentIndex;
 
-        // Only add triangles that have distinct vertices.
-        if (i >= 2 && (currentVertex.x !== vertices[0].x || currentVertex.y !== vertices[0].y)) {
-            fillElement.push(firstIndex, prevIndex, currentIndex);
-            elementGroup.elementLength++;
+            // convert to format used by earcut
+            flattened.push(vertex[0]);
+            flattened.push(vertex[1]);
         }
+    }
 
-        if (i >= 1) {
-            outlineElement.push(prevIndex, currentIndex);
-            elementGroup.secondElementLength++;
-        }
+    var triangleIndices = earcut(flattened, holeIndices);
 
-        prevIndex = currentIndex;
+    for (var i = 0; i < triangleIndices.length; i++) {
+        fillElement.push(triangleIndices[i] + startIndex);
+        elementGroup.elementLength += 1;
     }
 };
+
+function convertCoords(rings) {
+    var result = [];
+    for (var i = 0; i < rings.length; i++) {
+        var ring = [];
+        for (var j = 0; j < rings[i].length; j++) {
+            var p = rings[i][j];
+            ring.push([p.x, p.y]);
+        }
+        result.push(ring);
+    }
+    return result;
+}

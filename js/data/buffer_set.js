@@ -34,6 +34,10 @@ var outlineElementOptions = {type: Buffer.BufferType.ELEMENT, attributes: [
     {name: 'vertices', components: 2, type: Buffer.ELEMENT_ATTRIBUTE_TYPE}
 ]};
 
+var fillElementOptions = {type: Buffer.BufferType.ELEMENT, attributes: [
+    {name: 'vertices', components: 1, type: Buffer.ELEMENT_ATTRIBUTE_TYPE}
+]};
+
 var bufferOptions = {
     glyphVertex: symbolVertexOptions,
     glyphElement: triangleElementOptions,
@@ -42,7 +46,7 @@ var bufferOptions = {
     circleVertex: fillVertexOptions,
     circleElement: triangleElementOptions,
     fillVertex: fillVertexOptions,
-    fillElement: triangleElementOptions,
+    fillElement: fillElementOptions,
     outlineElement: outlineElementOptions,
     lineVertex: lineVertexOptions,
     lineElement: triangleElementOptions,
