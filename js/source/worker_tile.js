@@ -110,8 +110,9 @@ WorkerTile.prototype.parse = function(data, layers, actor, callback) {
 
         // Get dependencies for symbol buckets
         for (i = symbolBuckets.length - 1; i >= 0; i--) {
-            symbolBuckets[i].updateIcons(icons);
-            symbolBuckets[i].updateFont(stacks);
+            bucket = symbolBuckets[i];
+            bucket.updateIcons(bucket.features, icons);
+            bucket.updateFont(bucket.features, stacks);
         }
 
         for (var fontName in stacks) {
@@ -158,7 +159,7 @@ WorkerTile.prototype.parse = function(data, layers, actor, callback) {
 
     function parseBucket(tile, bucket) {
         var now = Date.now();
-        bucket.addFeatures(collisionTile, stacks, icons);
+        bucket.addFeatures(bucket.features, collisionTile, stacks, icons);
         var time = Date.now() - now;
 
         if (bucket.interactive) {

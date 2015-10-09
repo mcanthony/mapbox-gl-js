@@ -20,10 +20,10 @@ function CircleBucket(buffers) {
         buffers.circleElement);
 }
 
-CircleBucket.prototype.addFeatures = function() {
+CircleBucket.prototype.addFeatures = function(features) {
     var extent = 4096;
-    for (var i = 0; i < this.features.length; i++) {
-        var geometries = this.features[i].loadGeometry()[0];
+    for (var i = 0; i < features.length; i++) {
+        var geometries = features[i].loadGeometry()[0];
         for (var j = 0; j < geometries.length; j++) {
             this.elementGroups.makeRoomFor(6);
             var x = geometries[j].x,

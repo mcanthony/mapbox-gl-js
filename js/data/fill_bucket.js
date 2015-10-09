@@ -11,8 +11,7 @@ function FillBucket(buffers) {
     this.elementGroups = new ElementGroups(buffers.fillVertex, buffers.fillElement, buffers.outlineElement);
 }
 
-FillBucket.prototype.addFeatures = function() {
-    var features = this.features;
+FillBucket.prototype.addFeatures = function(features) {
     for (var i = 0; i < features.length; i++) {
         var feature = features[i];
         this.addFeature(feature.loadGeometry());

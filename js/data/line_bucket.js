@@ -14,8 +14,7 @@ function LineBucket(buffers, layoutProperties) {
     this.layoutProperties = layoutProperties;
 }
 
-LineBucket.prototype.addFeatures = function() {
-    var features = this.features;
+LineBucket.prototype.addFeatures = function(features) {
     for (var i = 0; i < features.length; i++) {
         var feature = features[i];
         this.addFeature(feature.loadGeometry());
